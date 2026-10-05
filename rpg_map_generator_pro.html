@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPG Map Generator Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .mono { font-family: 'Fira Code', monospace; }
+
+        canvas {
+            image-rendering: pixelated;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            background-color: #4ade80; /* Base grass color fallback */
+        }
+
+        /* Custom scrollbar for settings panel */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        /* Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+        input[type=range]:focus { outline: none; }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row">
+
+    <aside class="w-full md:w-80 lg:w-96 bg-[#16202a] border-r border-slate-800 h-full flex flex-col z-10 shrink-0">
+        <div class="p-6 border-b border-slate-800 bg-[#0f172a]">
+            <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-cyan-400"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 18a3 3 0 1 0-6 0"/><path d="M15 18v-3"/><path d="M9 18v-3"/><path d="M12 15v-3"/><path d="M14.5 12h-5"/><path d="M17.5 15h-11"/><path d="M20.5 18h-17"/><path d="M17 21H7"/><path d="M21 9.5V21a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9.5L12 2z"/></svg>
+                World Builder
+            </h1>
+            <p class="text-xs text-slate-400 mt-1">Procedural Map Generator</p>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            
+            <!-- Seed -->
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">World Seed</label>
+                <div class="flex gap-2">
+                    <input type="text" id="seedInput" value="PokemonEmerald" class="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-cyan-300 mono focus:border-cyan-500 focus:outline-none transition-colors">
+                    <button id="randomSeedBtn" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-3 py-2 transition-colors" title="Randomize Seed">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-300"><path d="M21.5 2v6h-6M2.13 15.57a9 9 0 1 0 3.87-11.57L2 2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Grid Size -->
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium text-slate-300">Map Size</label>
+                    <span id="mapSizeVal" class="text-xs text-cyan-400 mono">60x60</span>
+                </div>
+                <input type="range" id="mapSize" min="30" max="120" value="60" step="10">
+                <p class="text-[10px] text-slate-500 mt-1">Grid dimensions (warning: large grids take longer).</p>
+            </div>
+
+            <!-- Town Count -->
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium text-slate-300">Total Towns</label>
+                    <span id="townCountVal" class="text-xs text-cyan-400 mono">15</span>
+                </div>
+                <input type="range" id="townCount" min="5" max="50" value="15">
+            </div>
+
+            <!-- Gym Count -->
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium text-slate-300">Number of Gyms</label>
+                    <span id="gymCountVal" class="text-xs text-cyan-400 mono">8</span>
+                </div>
+                <input type="range" id="gymCount" min="0" max="15" value="8">
+            </div>
+
+            <!-- Town Size Configurations -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-xs font-medium text-slate-300">Min Width</label>
+                        <span id="minTownWVal" class="text-[10px] text-cyan-400 mono">3</span>
+                    </div>
+                    <input type="range" id="minTownW" min="2" max="8" value="3">
+                </div>
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-xs font-medium text-slate-300">Max Width</label>
+                        <span id="maxTownWVal" class="text-[10px] text-cyan-400 mono">5</span>
+                    </div>
+                    <input type="range" id="maxTownW" min="2" max="12" value="5">
+                </div>
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-xs font-medium text-slate-300">Min Height</label>
+                        <span id="minTownHVal" class="text-[10px] text-cyan-400 mono">3</span>
+                    </div>
+                    <input type="range" id="minTownH" min="2" max="8" value="3">
+                </div>
+                <div>
+                    <div class="flex justify-between mb-1">
+                        <label class="text-xs font-medium text-slate-300">Max Height</label>
+                        <span id="maxTownHVal" class="text-[10px] text-cyan-400 mono">5</span>
+                    </div>
+                    <input type="range" id="maxTownH" min="2" max="12" value="5">
+                </div>
+            </div>
+
+            <!-- Road Connectivity -->
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium text-slate-300">Road Connectivity</label>
+                    <span id="connectivityVal" class="text-xs text-cyan-400 mono">25%</span>
+                </div>
+                <input type="range" id="connectivity" min="0" max="100" value="25">
+                <p class="text-[10px] text-slate-500 mt-1">0% = Minimum branches. 100% = Many loops & shortcuts.</p>
+            </div>
+
+            <!-- Path Style -->
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium text-slate-300">Path Style</label>
+                    <span id="pathStyleVal" class="text-xs text-cyan-400 mono">Balanced</span>
+                </div>
+                <input type="range" id="pathStyle" min="0" max="100" value="30">
+                <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                    <span>Blocky (Straight)</span>
+                    <span>Winding (Natural)</span>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="p-6 border-t border-slate-800 bg-[#0f172a]">
+            <button id="generateBtn" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-3 px-4 rounded-lg shadow-[0_0_15px_rgba(8,145,178,0.4)] transition-all active:scale-95 flex justify-center items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Generate World
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9IiMzMzM5Ii8+PC9zdmc+')] relative overflow-hidden flex flex-col">
+        <div class="flex-1 flex items-center justify-center p-4 relative" id="canvasContainer">
+            <canvas id="mapCanvas" class="rounded-xl ring-4 ring-slate-800"></canvas>
+            
+            <!-- Map Legend overlays -->
+            <div class="absolute bottom-6 right-6 bg-[#0f172a]/90 backdrop-blur border border-slate-700 p-4 rounded-lg shadow-xl text-xs space-y-2 select-none pointer-events-none">
+                <div class="font-semibold text-slate-300 mb-2 border-b border-slate-700 pb-1">Legend</div>
+                <div class="flex items-center gap-2"><div class="w-3 h-3 bg-[#38bdf8] border border-black shadow-[2px_2px_0_rgba(0,0,0,0.5)]"></div> Start Town</div>
+                <div class="flex items-center gap-2"><div class="w-3 h-3 bg-[#ef4444] border border-black shadow-[2px_2px_0_rgba(0,0,0,0.5)]"></div> Gym</div>
+                <div class="flex items-center gap-2"><div class="w-3 h-3 bg-[#94a3b8] border border-black shadow-[2px_2px_0_rgba(0,0,0,0.5)]"></div> City / Town</div>
+                <div class="flex items-center gap-2"><div class="w-3 h-3 bg-[#b48a66]"></div> Routes / Paths</div>
+                <div class="flex items-center gap-2"><div class="w-3 h-3 bg-[#2d5a27]"></div> Forest / Obstacle</div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- PRNG Setup (Linear Congruential Generator) ---
+        let rngSeed = 1;
+        
+        function hashString(str) {
+            let h = 1779033703 ^ str.length;
+            for(let i = 0; i < str.length; i++) {
+                h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+                h = h << 13 | h >>> 19;
+            }
+            h = Math.imul(h ^ (h >>> 16), 2246822507);
+            h = Math.imul(h ^ (h >>> 13), 3266489909);
+            return (h ^= h >>> 16) >>> 0;
+        }
+
+        function setSeed(seedStr) {
+            rngSeed = hashString(seedStr);
+            if (rngSeed === 0) rngSeed = 1;
+        }
+
+        function random() {
+            // LCG parameters commonly used
+            rngSeed = (1103515245 * rngSeed + 12345) % 2147483648;
+            return rngSeed / 2147483648;
+        }
+
+        function randomInt(min, max) {
+            return Math.floor(random() * (max - min + 1)) + min;
+        }
+
+        // --- Core Application State ---
+        const UI = {
+            seedInput: document.getElementById('seedInput'),
+            randomSeedBtn: document.getElementById('randomSeedBtn'),
+            mapSize: document.getElementById('mapSize'),
+            mapSizeVal: document.getElementById('mapSizeVal'),
+            townCount: document.getElementById('townCount'),
+            townCountVal: document.getElementById('townCountVal'),
+            gymCount: document.getElementById('gymCount'),
+            gymCountVal: document.getElementById('gymCountVal'),
+            minTownW: document.getElementById('minTownW'),
+            minTownWVal: document.getElementById('minTownWVal'),
+            maxTownW: document.getElementById('maxTownW'),
+            maxTownWVal: document.getElementById('maxTownWVal'),
+            minTownH: document.getElementById('minTownH'),
+            minTownHVal: document.getElementById('minTownHVal'),
+            maxTownH: document.getElementById('maxTownH'),
+            maxTownHVal: document.getElementById('maxTownHVal'),
+            connectivity: document.getElementById('connectivity'),
+            connectivityVal: document.getElementById('connectivityVal'),
+            pathStyle: document.getElementById('pathStyle'),
+            pathStyleVal: document.getElementById('pathStyleVal'),
+            generateBtn: document.getElementById('generateBtn'),
+            canvas: document.getElementById('mapCanvas'),
+            container: document.getElementById('canvasContainer')
+        };
+
+        const ctx = UI.canvas.getContext('2d');
+
+        // Tiles
+        const TILE_GRASS = 0;
+        const TILE_PATH = 1;
+        const TILE_TOWN = 2;
+        const TILE_TREE = 3; // Decoration/Obstacle
+
+        let grid = [];
+        let noiseGrid = []; // Used for winding path weighting
+        let towns = [];
+        let edges = []; // MST + extra connections
+
+        // Colors
+        const COLORS = {
+            GRASS_BASE: '#5db353',
+            GRASS_ALT1: '#66bb5a',
+            GRASS_ALT2: '#55a64b',
+            TREE: '#2d5a27',
+            PATH: '#d4a373',
+            PATH_EDGE: '#b48a66',
+            TOWN: '#94a3b8',
+            TOWN_ROOF: '#cbd5e1',
+            START: '#38bdf8',
+            START_ROOF: '#7dd3fc',
+            GYM: '#ef4444',
+            GYM_ROOF: '#f87171'
+        };
+
+        // --- UI Updates ---
+        UI.mapSize.addEventListener('input', (e) => UI.mapSizeVal.textContent = `${e.target.value}x${e.target.value}`);
+        
+        UI.townCount.addEventListener('input', (e) => {
+            UI.townCountVal.textContent = e.target.value;
+            // Ensure gym count doesn't exceed town count (-1 for start town)
+            if (parseInt(UI.gymCount.value) > parseInt(e.target.value) - 1) {
+                UI.gymCount.value = Math.max(0, parseInt(e.target.value) - 1);
+                UI.gymCountVal.textContent = UI.gymCount.value;
+            }
+            UI.gymCount.max = Math.max(0, parseInt(e.target.value) - 1);
+        });
+
+        UI.gymCount.addEventListener('input', (e) => UI.gymCountVal.textContent = e.target.value);
+
+        const enforceMinMax = (minEl, maxEl, minValEl, maxValEl) => {
+            minEl.addEventListener('input', (e) => {
+                if (parseInt(e.target.value) > parseInt(maxEl.value)) maxEl.value = e.target.value;
+                minValEl.textContent = e.target.value;
+                maxValEl.textContent = maxEl.value;
+            });
+            maxEl.addEventListener('input', (e) => {
+                if (parseInt(e.target.value) < parseInt(minEl.value)) minEl.value = e.target.value;
+                minValEl.textContent = minEl.value;
+                maxValEl.textContent = e.target.value;
+            });
+        };
+        enforceMinMax(UI.minTownW, UI.maxTownW, UI.minTownWVal, UI.maxTownWVal);
+        enforceMinMax(UI.minTownH, UI.maxTownH, UI.minTownHVal, UI.maxTownHVal);
+
+        UI.connectivity.addEventListener('input', (e) => UI.connectivityVal.textContent = `${e.target.value}%`);
+        
+        UI.pathStyle.addEventListener('input', (e) => {
+            let val = parseInt(e.target.value);
+            if (val < 20) UI.pathStyleVal.textContent = "Strict (Blocky)";
+            else if (val < 40) UI.pathStyleVal.textContent = "Balanced";
+            else if (val < 70) UI.pathStyleVal.textContent = "Organic";
+            else UI.pathStyleVal.textContent = "Winding";
+        });
+
+        UI.randomSeedBtn.addEventListener('click', () => {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let str = '';
+            for(let i=0; i<8; i++) str += chars.charAt(Math.floor(Math.random() * chars.length));
+            UI.seedInput.value = str;
+        });
+
+        UI.generateBtn.addEventListener('click', generateMap);
+
+        // --- Math & Helper Functions ---
+        function getDistance(x1, y1, x2, y2) {
+            return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+        }
+
+        function getManhattanDist(x1, y1, x2, y2) {
+            return Math.abs(x2 - x1) + Math.abs(y2 - y1);
+        }
+
+        // --- Core Algorithms ---
+
+        function initGrids(size) {
+            grid = Array(size).fill().map(() => Array(size).fill(TILE_GRASS));
+            noiseGrid = Array(size).fill().map(() => Array(size).fill(0));
+
+            // Generate noise landscape for "Winding" path preference and tree placement
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) {
+                    noiseGrid[x][y] = random(); // Value 0.0 to 1.0
+                    
+                    // Sprinkle random trees globally, denser towards edges
+                    let distToCenterX = Math.abs(x - size/2) / (size/2);
+                    let distToCenterY = Math.abs(y - size/2) / (size/2);
+                    let edgeFactor = Math.max(distToCenterX, distToCenterY);
+                    
+                    // High noise + high edge factor = Tree
+                    if (noiseGrid[x][y] > 0.8 - (edgeFactor * 0.3)) {
+                        grid[x][y] = TILE_TREE;
+                    }
+                }
+            }
+        }
+
+        function placeTowns(size, count, gymCount) {
+            towns = [];
+            const minW = parseInt(UI.minTownW.value);
+            const maxW = parseInt(UI.maxTownW.value);
+            const minH = parseInt(UI.minTownH.value);
+            const maxH = parseInt(UI.maxTownH.value);
+            
+            const padding = 2; // Grid cells padding between AABB bounds
+
+            let attempts = 0;
+            const maxAttempts = 3000;
+
+            while (towns.length < count && attempts < maxAttempts) {
+                attempts++;
+
+                let w = randomInt(minW, maxW);
+                let h = randomInt(minH, maxH);
+                
+                // 75% chance to lean towards making it a square
+                if (random() < 0.75) {
+                    let side = randomInt(Math.max(minW, minH), Math.min(maxW, maxH));
+                    // Check if the side is valid within both bounds, else fallback
+                    if (side >= minW && side <= maxW && side >= minH && side <= maxH) {
+                        w = side;
+                        h = side;
+                    } else {
+                        h = w;
+                        if (h > maxH) h = maxH;
+                        if (h < minH) h = minH;
+                        w = h; 
+                    }
+                }
+
+                // Keep away from literal edges
+                let px = randomInt(2, size - w - 2);
+                let py = randomInt(2, size - h - 2);
+
+                // AABB intersection check
+                let tooClose = false;
+                for (let t of towns) {
+                    if (
+                        px < t.x + t.w + padding &&
+                        px + w + padding > t.x &&
+                        py < t.y + t.h + padding &&
+                        py + h + padding > t.y
+                    ) {
+                        tooClose = true;
+                        break;
+                    }
+                }
+
+                if (!tooClose) {
+                    let cx = Math.floor(px + w / 2);
+                    let cy = Math.floor(py + h / 2);
+                    towns.push({ id: towns.length, x: px, y: py, w: w, h: h, cx: cx, cy: cy, type: 'regular' });
+                    
+                    // Clear trees around the town so it's not buried
+                    for(let dx = -1; dx <= w; dx++) {
+                        for(let dy = -1; dy <= h; dy++) {
+                            if(px+dx >= 0 && px+dx < size && py+dy >= 0 && py+dy < size) {
+                                grid[px+dx][py+dy] = TILE_GRASS; 
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Assign Roles
+            if (towns.length > 0) towns[0].type = 'start';
+            
+            // Assign gyms randomly to remaining towns
+            let availableForGym = towns.slice(1);
+            // Shuffle
+            for (let i = availableForGym.length - 1; i > 0; i--) {
+                const j = randomInt(0, i);
+                [availableForGym[i], availableForGym[j]] = [availableForGym[j], availableForGym[i]];
+            }
+            
+            for (let i = 0; i < Math.min(gymCount, availableForGym.length); i++) {
+                availableForGym[i].type = 'gym';
+            }
+        }
+
+        function buildGraph(connectivityPercent) {
+            let allPairs = [];
+            for (let i = 0; i < towns.length; i++) {
+                for (let j = i + 1; j < towns.length; j++) {
+                    allPairs.push({
+                        u: towns[i],
+                        v: towns[j],
+                        dist: getDistance(towns[i].cx, towns[i].cy, towns[j].cx, towns[j].cy)
+                    });
+                }
+            }
+
+            // Sort by distance
+            allPairs.sort((a, b) => a.dist - b.dist);
+
+            // Disjoint Set for Kruskal's
+            let parent = {};
+            for (let t of towns) parent[t.id] = t.id;
+
+            function find(i) {
+                if (parent[i] === i) return i;
+                return parent[i] = find(parent[i]);
+            }
+            function union(i, j) {
+                let rootI = find(i);
+                let rootJ = find(j);
+                if(rootI !== rootJ) parent[rootI] = rootJ;
+            }
+
+            edges = [];
+            let unusedEdges = [];
+
+            // 1. Build Minimum Spanning Tree (MST)
+            for (let edge of allPairs) {
+                if (find(edge.u.id) !== find(edge.v.id)) {
+                    edges.push(edge);
+                    union(edge.u.id, edge.v.id);
+                } else {
+                    unusedEdges.push(edge);
+                }
+            }
+
+            // 2. Add extra connectivity based on slider
+            if (connectivityPercent > 0) {
+                // Filter out insanely long cross-map edges to prevent visual mess
+                let thresholdDist = (parseInt(UI.mapSize.value) / 2);
+                let viableExtras = unusedEdges.filter(e => e.dist < thresholdDist);
+                
+                let extraCount = Math.floor(viableExtras.length * (connectivityPercent / 100));
+                
+                // Randomly pick extraCount edges
+                for (let i = 0; i < extraCount; i++) {
+                    if (viableExtras.length === 0) break;
+                    let idx = randomInt(0, viableExtras.length - 1);
+                    edges.push(viableExtras[idx]);
+                    viableExtras.splice(idx, 1); // remove
+                }
+            }
+        }
+
+        function carvePaths(size, pathStyleVal) {
+            // pathStyleVal 0 -> Blocky (High turn penalty, no noise)
+            // pathStyleVal 100 -> Winding (No turn penalty, high noise sensitivity)
+            
+            // Map 0-100 to actual parameters
+            let turnPenaltyMultiplier = 20 * (1 - (pathStyleVal / 100)); // 20 down to 0
+            let noiseSensitivity = 10 * (pathStyleVal / 100); // 0 up to 10
+            
+            const dirs = [
+                {dx: 0, dy: -1, name: 'N'},
+                {dx: 0, dy: 1, name: 'S'},
+                {dx: -1, dy: 0, name: 'W'},
+                {dx: 1, dy: 0, name: 'E'}
+            ];
+
+            for (let edge of edges) {
+                let openSet = [];
+                let closedSet = new Set();
+                
+                // Custom PQ, sorting lazily is fine for JS small sets, but keeping sorted is better
+                openSet.push({
+                    x: edge.u.cx, y: edge.u.cy,
+                    g: 0, h: getManhattanDist(edge.u.cx, edge.u.cy, edge.v.cx, edge.v.cy),
+                    f: 0, parent: null, dir: null
+                });
+
+                let bestNode = null;
+
+                while(openSet.length > 0) {
+                    // Extract min
+                    let minIdx = 0;
+                    for(let i=1; i<openSet.length; i++){
+                        if(openSet[i].f < openSet[minIdx].f) minIdx = i;
+                    }
+                    let current = openSet.splice(minIdx, 1)[0];
+
+                    if (current.x === edge.v.cx && current.y === edge.v.cy) {
+                        bestNode = current;
+                        break;
+                    }
+
+                    let stateKey = `${current.x},${current.y},${current.dir}`;
+                    if (closedSet.has(stateKey)) continue;
+                    closedSet.add(stateKey);
+
+                    for (let d of dirs) {
+                        let nx = current.x + d.dx;
+                        let ny = current.y + d.dy;
+
+                        if (nx < 0 || nx >= size || ny < 0 || ny >= size) continue;
+
+                        // Calculate Movement Cost
+                        let baseCost = 1;
+                        
+                        // Favor existing paths to merge roads
+                        if (grid[nx][ny] === TILE_PATH) baseCost = 0.2; 
+                        
+                        // Avoid routing inside *other* towns (bounding box check)
+                        let isInsideOtherTown = false;
+                        for(let t of towns) {
+                            if (t !== edge.u && t !== edge.v) {
+                                // Add 1 tile buffer around other towns so paths don't hug walls perfectly unless necessary
+                                if (nx >= t.x - 1 && nx < t.x + t.w + 1 && ny >= t.y - 1 && ny < t.y + t.h + 1) {
+                                    isInsideOtherTown = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (isInsideOtherTown) baseCost += 50; 
+
+                        // Trees are obstacles, prefer going around unless impossible
+                        if (grid[nx][ny] === TILE_TREE) baseCost += 5;
+
+                        // Noise (creates winding, natural feeling paths)
+                        let noiseCost = noiseGrid[nx][ny] * noiseSensitivity;
+
+                        // Turn Penalty (enforces straight L-shape blocks)
+                        let turnCost = 0;
+                        if (current.dir !== null && current.dir !== d.name) {
+                            turnCost = turnPenaltyMultiplier;
+                        }
+
+                        let g = current.g + baseCost + turnCost + noiseCost;
+                        let h = getManhattanDist(nx, ny, edge.v.cx, edge.v.cy);
+                        let f = g + h;
+
+                        openSet.push({
+                            x: nx, y: ny,
+                            g: g, h: h, f: f,
+                            parent: current, dir: d.name
+                        });
+                    }
+                }
+
+                // Carve
+                if (bestNode) {
+                    let curr = bestNode;
+                    while (curr) {
+                        // Prevent path tiles from ruining town interiors where we draw buildings
+                        let isInsideStartOrEnd = false;
+                        for (let t of [edge.u, edge.v]) {
+                            if (curr.x >= t.x && curr.x < t.x + t.w && curr.y >= t.y && curr.y < t.y + t.h) {
+                                isInsideStartOrEnd = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!isInsideStartOrEnd || grid[curr.x][curr.y] === TILE_PATH) {
+                           grid[curr.x][curr.y] = TILE_PATH;
+                        }
+                        
+                        curr = curr.parent;
+                    }
+                }
+            }
+        }
+
+        // --- Rendering ---
+        function renderMap(size) {
+            // Determine canvas sizing based on container
+            const containerRect = UI.container.getBoundingClientRect();
+            // Leave some padding
+            const maxDimension = Math.min(containerRect.width, containerRect.height) - 40; 
+            
+            // Calculate cell size
+            let cellSize = Math.floor(maxDimension / size);
+            if (cellSize < 3) cellSize = 3; // Minimum size for visibility
+
+            let canvasSize = size * cellSize;
+            
+            UI.canvas.width = canvasSize;
+            UI.canvas.height = canvasSize;
+
+            ctx.clearRect(0, 0, canvasSize, canvasSize);
+
+            // Draw Base
+            ctx.fillStyle = COLORS.GRASS_BASE;
+            ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+            // Draw Tiles
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) {
+                    let drawX = x * cellSize;
+                    let drawY = y * cellSize;
+
+                    // Grass noise texture variation
+                    if (grid[x][y] === TILE_GRASS) {
+                        if (noiseGrid[x][y] > 0.6) {
+                            ctx.fillStyle = COLORS.GRASS_ALT1;
+                            ctx.fillRect(drawX, drawY, cellSize, cellSize);
+                        } else if (noiseGrid[x][y] < 0.2) {
+                            ctx.fillStyle = COLORS.GRASS_ALT2;
+                            ctx.fillRect(drawX, drawY, cellSize, cellSize);
+                        }
+                    }
+
+                    // Trees
+                    else if (grid[x][y] === TILE_TREE) {
+                        ctx.fillStyle = COLORS.TREE;
+                        // Draw a simple tree shape
+                        ctx.beginPath();
+                        ctx.arc(drawX + cellSize/2, drawY + cellSize/2, cellSize/1.8, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // Paths
+                    else if (grid[x][y] === TILE_PATH) {
+                        ctx.fillStyle = COLORS.PATH_EDGE;
+                        ctx.fillRect(drawX, drawY, cellSize, cellSize);
+                        
+                        ctx.fillStyle = COLORS.PATH;
+                        // Inner path for retro border feel
+                        let margin = Math.max(1, Math.floor(cellSize * 0.15));
+                        ctx.fillRect(drawX + margin, drawY + margin, cellSize - (margin*2), cellSize - (margin*2));
+                    }
+                }
+            }
+
+            // Draw Towns
+            for (let t of towns) {
+                let px = t.x;
+                let py = t.y;
+
+                let drawX = px * cellSize;
+                let drawY = py * cellSize;
+                let drawW = t.w * cellSize;
+                let drawH = t.h * cellSize;
+
+                // Base / Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(drawX + 4, drawY + 4, drawW, drawH);
+
+                // Main body
+                if (t.type === 'start') {
+                    ctx.fillStyle = COLORS.START;
+                } else if (t.type === 'gym') {
+                    ctx.fillStyle = COLORS.GYM;
+                } else {
+                    ctx.fillStyle = COLORS.TOWN;
+                }
+                ctx.fillRect(drawX, drawY, drawW, drawH);
+                
+                // Border 
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = Math.max(1, Math.floor(cellSize*0.1));
+                ctx.strokeRect(drawX, drawY, drawW, drawH);
+
+                // Roof/Inner accent
+                if (t.type === 'start') ctx.fillStyle = COLORS.START_ROOF;
+                else if (t.type === 'gym') ctx.fillStyle = COLORS.GYM_ROOF;
+                else ctx.fillStyle = COLORS.TOWN_ROOF;
+
+                let rMargin = Math.max(2, cellSize * 0.2);
+                ctx.fillRect(drawX + rMargin, drawY + rMargin, drawW - (rMargin*2), drawH * 0.6);
+
+                // Gym badge marker
+                if (t.type === 'gym') {
+                    ctx.fillStyle = '#fef08a'; // gold
+                    ctx.beginPath();
+                    ctx.arc(drawX + drawW/2, drawY + drawH/2 + cellSize*0.3, cellSize*0.4, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function generateMap() {
+            const seed = UI.seedInput.value;
+            setSeed(seed);
+
+            const size = parseInt(UI.mapSize.value);
+            const count = parseInt(UI.townCount.value);
+            const gymCount = parseInt(UI.gymCount.value);
+            const connectivityPercent = parseInt(UI.connectivity.value);
+            const pathStyle = parseInt(UI.pathStyle.value);
+
+            // 1. Initialize logic
+            initGrids(size);
+
+            // 2. Place POIs
+            placeTowns(size, count, gymCount);
+
+            // 3. Connect nodes
+            buildGraph(connectivityPercent);
+
+            // 4. Carve tiles
+            carvePaths(size, pathStyle);
+
+            // 5. Render to screen
+            renderMap(size);
+        }
+
+        // Handle Window resize (debounce for performance)
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                const size = parseInt(UI.mapSize.value);
+                if (towns.length > 0) {
+                    renderMap(size); // Re-render existing data
+                }
+            }, 250);
+        });
+
+        // Initialize first run
+        window.onload = generateMap;
+
+    </script>
+</body>
+</html>
